@@ -1,0 +1,57 @@
+---
+- name: Configure Repository for Java 8
+  hosts: all
+  become: true
+  tasks:
+  - name: Add repository for Java 8
+    apt_repository:
+      repo: ppa:webupd8team/java
+      state: present
+    notify: Set license
+  handlers:
+  - name: Set license selected
+    shell: /bin/echo debconf shared/accepted-oracle-license-v1-1 select true | /usr/bin/debconf-set-selections
+    listen: Set license
+  - name: Set license seen
+    shell: /bin/echo debconf shared/accepted-oracle-license-v1-1 seen true | /usr/bin/debconf-set-selections
+    listen: Set license
+
+- name: Configure Application
+  hosts: all
+  become: true
+  tasks:
+  - name: Install Java 8
+    apt:
+      name: oracle-java8-installer
+      state: present
+      update-cache: yes
+      force: yes
+  - name: Install the software
+    copy:
+      src: ../deploy/paymentgateway-all.jar
+      dest: /paymentgateway/
+    notify: Restart the service
+  - name: Copy the libraries
+    copy:
+      src: ../deploy/lib
+      dest: /paymentgateway/
+    notify: Restart the service
+  - name: Copy the static web content
+    copy:
+      src: ../deploy/webapp
+      dest: /paymentgateway/
+    notify: Restart the service
+  - name: Copy the database
+    copy:
+      src: ../deploy/db
+      dest: /paymentgateway
+  - name: Copy the service definition
+    copy:
+      src: ../deploy/service/paymentgateway-all.conf
+      dest: /etc/init/
+    notify: Restart the service
+  handlers:
+  - name: Restart the service
+    service:
+      name: paymentgateway-all
+      state: restarted
