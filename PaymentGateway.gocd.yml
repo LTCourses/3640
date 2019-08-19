@@ -1,0 +1,323 @@
+format_version: 3
+pipelines:
+  PaymentGateway:
+    group: IDO
+    label_template: "${COUNT}"
+    materials:
+      mygit:
+        git: http://lab4:8885/PaymentGateway.git
+        branch: master
+    stages:
+    - Commit:
+        fetch_materials: true
+        clean_workspace: true
+        jobs:
+          Build:
+            resources:
+            - java
+            artifacts:
+            - test:
+                source: results/unit
+                destination: results
+            - build:
+                source: report/unit
+                destination: report
+            - build:
+                source: report/coverage
+                destination: report
+            - build:
+                source: build.xml
+                destination:
+            - build:
+                source: deploy
+                destination:
+            - build:
+                source: tests
+                destination:
+            - build:
+                source: provision
+                destination:
+            - build:
+                source: sh/runnow.cmd
+                destination: sh
+            tabs:
+              Unit: report/unit/index.html
+              Coverage: report/coverage/index.html
+            tasks:
+            - exec:
+                command: ant -k build unit report-unit report-coverage
+          Style:
+            resources:
+            - java
+            artifacts:
+            - build:
+                source: report/checkstyle
+                destination: report
+            tabs:
+              Style: report/checkstyle/index.html
+            tasks:
+            - exec:
+                command: ant -k style report-style
+    - Acceptance:
+        fetch_materials: false
+        clean_workspace: true
+        jobs:
+          Acceptance:
+            resources:
+            - java
+            artifacts:
+            - test:
+                source: results/other
+                destination: results
+            - build:
+                source: report/cucumber
+                destination: report
+            - build:
+                source: report/other
+                destination: report
+            tabs:
+              Cucumber: report/cucumber/index.html
+              Cucumber_Other: report/other/index.html
+            tasks:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: yes
+                source: build.xml
+                destination:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: no
+                source: deploy
+                destination:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: no
+                source: tests
+                destination:
+            - exec:
+                command: ant -k acceptance report-acceptance report-other
+          API:
+            resources:
+            - java
+            artifacts:
+            - test:
+                source: results/soapui
+                destination: results
+            - build:
+                source: report/soapui
+                destination: report
+            - build:
+                source: report/other
+                destination: report
+            tabs:
+              SoapUI: report/soapui/index.html
+              SoapUI_Other: report/other/index.html
+            tasks:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: yes
+                source: build.xml
+                destination:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: no
+                source: deploy
+                destination:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: no
+                source: tests
+                destination:
+            - exec:
+                command: ant -k api report-api report-other
+    - UAT:
+        fetch_materials: false
+        clean_workspace: true
+        jobs:
+          UI:
+            resources:
+            - java
+            artifacts:
+            - test:
+                source: results/other
+                destination: results
+            - build:
+                source: report/cucumberui
+                destination: report
+            - build:
+                source: report/other
+                destination: report
+            tabs:
+              Cucumber: report/cucumberui/index.html
+              Cucumber_Other: report/other/index.html
+            tasks:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: yes
+                source: build.xml
+                destination:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: no
+                source: deploy
+                destination:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: no
+                source: tests
+                destination:
+            - exec:
+                command: ant -k ui report-ui report-other
+          Load:
+            resources:
+            - java
+            artifacts:
+            - test:
+                source: results/load
+                destination: results
+            - build:
+                source: report/load
+                destination: report
+            - build:
+                source: report/other
+                destination: report
+            tabs:
+              SoapUI: report/load/index.html
+              SoapUI_Other: report/other/index.html
+            tasks:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: yes
+                source: build.xml
+                destination:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: no
+                source: deploy
+                destination:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: no
+                source: tests
+                destination:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: no
+                source: sh
+                destination:
+            - exec:
+                command: ant -k load report-load report-other
+          Security:
+            resources:
+            - java
+            artifacts:
+            - test:
+                source: results/security
+                destination: results
+            - build:
+                source: report/security
+                destination: report
+            - build:
+                source: report/other
+                destination: report
+            tabs:
+              SoapUI: report/security/index.html
+              SoapUI_Other: report/other/index.html
+            tasks:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: yes
+                source: build.xml
+                destination:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: no
+                source: deploy
+                destination:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: no
+                source: tests
+                destination:
+            - exec:
+                command: ant -k security report-security report-other
+    - Deploy:
+        fetch_materials: no
+        clean_workspace: yes
+        approval:
+          type: manual
+        jobs:
+          Deploy:
+            resources:
+            - bash
+            tasks:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: no
+                source: deploy
+                destination:
+            - fetch:
+                artifact_origin: gocd
+                pipeline:
+                stage: Commit
+                job: Build
+                is_file: no
+                source: provision
+                destination:
+            - exec:
+                command: bash -c "terraform init"
+                working_directory: provision
+            - exec:
+                command: bash -c "terraform apply -auto-approve"
+                working_directory: provision
