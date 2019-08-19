@@ -1,0 +1,6 @@
+FROM fiadliel/java8-jre
+COPY paymentgateway-api.jar /paymentgateway/
+COPY lib /paymentgateway/lib/
+COPY db/VISA.csv /paymentgateway/db/
+CMD [ "java", "-jar", "/paymentgateway/paymentgateway-api.jar" ]
+EXPOSE 5552

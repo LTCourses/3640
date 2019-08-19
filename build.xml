@@ -1,0 +1,655 @@
+<project name='PaymentGateway' default='test' basedir='.' xmlns:jacoco='antlib:org.jacoco.ant'>
+	<property name='src' value='${basedir}/src' />
+	<property name='lib' value='${basedir}/lib' />
+	<property name='provision' value='${basedir}/provision' />
+	<property name='bin' value='${basedir}/bin' />
+	<property name='deploy' value='${basedir}/deploy' />
+	<property name='results' value='${basedir}/results' />
+	<property name='report' value='${basedir}/report' />
+	<property name='tests' value='${basedir}/tests' />
+
+	<path id='compile.main'>
+		<fileset dir='${lib}/deploy'>
+			<include name='*.jar' />
+		</fileset>
+	</path>
+	
+	<path id='compile.test'>
+		<pathelement path='${bin}/deploy' />
+		<fileset dir='${lib}/deploy'>
+			<include name='*.jar' />
+		</fileset>
+		<fileset dir='${lib}/test'>
+			<include name='*.jar' />
+		</fileset>
+		<pathelement location='${lib}/soapui/soapui-5.2.1.jar' />
+	</path>
+	
+	<path id='test.standard'>
+		<pathelement location='${deploy}/paymentgateway-all.jar' />
+		<fileset dir='${tests}/lib'>
+			<include name='*.jar' />
+		</fileset>
+	</path>
+
+	<path id='test.soapui'>
+		<pathelement location='${deploy}/paymentgateway-all.jar' />
+		<fileset dir='${tests}/lib/soapui'>
+			<include name='*.jar' />
+		</fileset>
+		<fileset dir='${tests}/lib'>
+			<include name='*.jar' />
+		</fileset>
+	</path>
+	
+	<taskdef uri='antlib:org.jacoco.ant' resource='org/jacoco/ant/antlib.xml'>
+		<classpath path='${lib}/test/jacocoant.jar' />
+	</taskdef>
+
+	<target name='clean' description='Removes all generated files'>
+		<antcall target='stop-server' />
+		<delete dir='${bin}' />
+		<delete dir='${deploy}' />
+		<delete dir='${results}' />
+		<delete dir='${report}' />
+		<delete dir='${tests}' />
+		<delete>
+			<fileset dir='${basedir}' includes='*.log' />
+			<fileset dir='${basedir}' includes='*.log.*' />
+		</delete>
+	</target>
+	
+	<target name='clean-distribution' depends='clean' description='Caution - Caution: prepares for distribution to trainers, removes all generated files, including, including: Ansible, Eclipse, Git, Terraform'>
+		<!-- Ansible, Terraform -->
+		<delete dir='${provision}/.terraform' />
+		<delete dir='${provision}/group_vars' />
+		<delete>
+			<fileset dir='${provision}' includes='*.retry' />
+			<fileset dir='${provision}' includes='hosts' />
+			<fileset dir='${provision}' includes='labhosts' />
+			<fileset dir='${provision}' includes='terraform.tfstate*' />
+			<fileset dir='${provision}' includes='terraform.tfvars' />
+			<fileset dir='${provision}' includes='winlab.yml' />
+		</delete>
+		
+		<!-- Eclipse -->
+		<delete dir='${basedir}/.settings' />
+		<delete dir='${basedir}/bine' />
+		<delete file='${basedir}/.classpath' />
+		<delete file='${basedir}/.project' />
+		
+		<!-- Git -->
+		<delete dir='${basedir}/.git' />
+	</target>
+	
+	<target name='clean-course' depends='clean' description='Caution - Caution: prepares for course, removes all generated files and: Ansible, Eclipse, Elastic Stack, Git, Go CD, Terraform'>
+		<!-- Ansible, Terraform -->
+		<delete dir='${provision}/.terraform' />
+		<delete>
+			<fileset dir='${provision}' includes='*' excludes='ansible.cfg,aws.tf,ssh,variables.tf' />
+		</delete>
+		<delete dir='${provision}/.terraform' />
+		
+		<!-- Eclipse -->
+		<delete dir='${basedir}/.settings' />
+		<delete dir='${basedir}/bine' />
+		<delete file='${basedir}/.classpath' />
+		<delete file='${basedir}/.project' />
+		
+		<!-- Elastic -->
+		<delete file='${src}/main/logging/paymentgateway-full.config' />
+		
+		<!-- Git -->
+		<delete dir='${basedir}/.git' />
+		
+		<!-- Go CD -->
+		<delete>
+			<fileset dir='${basedir}' includes='*.gocd.yml' />
+		</delete>
+	</target>
+	
+	<target name='compile'>
+		<antcall target='stop-server' />
+		<mkdir dir='${bin}/deploy' />
+		<!-- @@@ Remove debugging? -->
+		<javac srcdir='${src}/main/java' destdir='${bin}/deploy' includeAntRuntime='false' debug='true'>
+			<classpath refid='compile.main' />
+		</javac>
+		<mkdir dir='${bin}/test' />
+		<javac srcdir='${src}/test/java' destdir='${bin}/test' includeAntRuntime='false'>
+			<classpath refid='compile.test' />
+		</javac>
+	</target>
+	
+	<target name='package' depends='compile'>
+		<mkdir dir='${deploy}' />
+		<jar destfile='${deploy}/paymentgateway-all.jar'>
+			<fileset dir='${bin}/deploy' includes='paymentgateway/**/*.class' excludes='paymentgateway/server/AppUi.class,paymentgateway/server/AppApi2.class,paymentgateway/server/AppApi.class,paymentgateway/server/AppOther.class' />
+			<manifest>
+				<attribute name='Main-Class' value='paymentgateway.server.AppAllInOne' />
+				<attribute name='Class-Path' value='lib/webbit-full.jar lib/guice.jar lib/aopalliance.jar lib/guava.jar lib/javax.inject.jar' />
+			</manifest>
+		</jar>
+		<antcall target='package-deploy' />
+	</target>
+	
+	<target name='package-deploy'>
+		<copy todir='${deploy}'>
+			<fileset dir='${src}/main/logging' />
+		</copy>
+		<mkdir dir='${deploy}/lib' />
+		<copy todir='${deploy}/lib'>
+			<fileset dir='${lib}/deploy' />
+		</copy>
+		<mkdir dir='${deploy}/webapp' />
+		<copy todir='${deploy}/webapp'>
+			<fileset dir='${src}/main/webapp' />
+		</copy>
+		<mkdir dir='${deploy}/db' />
+		<copy todir='${deploy}/db'>
+			<fileset dir='${src}/main/db' />
+		</copy>
+		<mkdir dir='${deploy}/service' />
+		<copy todir='${deploy}/service'>
+			<fileset dir='${src}/main/services' />
+		</copy>
+	</target>
+	
+	<target name='package-tests' depends='compile'>
+		<mkdir dir='${tests}/lib' />
+		<jar destfile='${tests}/lib/paymentgateway-test.jar'>
+			<fileset dir='${bin}/test' />
+		</jar>
+		<copy todir='${tests}/lib'>
+			<fileset dir='${lib}/test' />
+		</copy>
+		<mkdir dir='${tests}/lib/soapui' />
+		<copy todir='${tests}/lib/soapui'>
+			<fileset dir='${lib}/soapui' />
+		</copy>
+		<mkdir dir='${tests}/drivers' />
+		<copy todir='${tests}/drivers'>
+			<fileset dir='${lib}/drivers' />
+		</copy>
+		<mkdir dir='${tests}/cucumber' />
+		<copy todir='${tests}/cucumber'>
+			<fileset dir='${src}/test/cucumber' />
+		</copy>
+		<mkdir dir='${tests}/soapui' />
+		<copy todir='${tests}/soapui'>
+			<fileset dir='${src}/test/soapui' />
+		</copy>
+		<mkdir dir='${tests}/selenium' />
+		<copy todir='${tests}/selenium'>
+			<fileset dir='${src}/test/selenium' />
+		</copy>
+	</target>
+	
+	<target name='package2' depends='compile'>
+		<mkdir dir='${deploy}' />
+		<jar destfile='${deploy}/paymentgateway-ui.jar'>
+			<fileset dir='${bin}/deploy' includes='paymentgateway/server/*.class,paymentgateway/logic/InjectorConfiguration*.class' excludes='paymentgateway/server/AppAllInOne.class,paymentgateway/server/AppApi2.class,paymentgateway/server/AppApi.class,paymentgateway/server/AppOther.class,paymentgateway/server/ApiServer.class,paymentgateway/server/ProcessPaymentHandler.class' />
+			<manifest>
+				<attribute name='Main-Class' value='paymentgateway.server.AppUi' />
+				<attribute name='Class-Path' value='lib/webbit-full.jar lib/guice.jar lib/aopalliance.jar lib/guava.jar lib/javax.inject.jar' />
+			</manifest>
+		</jar>
+		<jar destfile='${deploy}/paymentgateway-api2.jar'>
+			<fileset dir='${bin}/deploy' includes='paymentgateway/**/*.class' excludes='paymentgateway/server/AppAllInOne.class,paymentgateway/server/AppUi.class,paymentgateway/server/AppApi.class,paymentgateway/server/AppOther.class,paymentgateway/server/UiServer.class,paymentgateway/server/FileHandlerBase.class,paymentgateway/server/FileNotFoundHandler.class,paymentgateway/server/ConfigHandler.class,paymentgateway/server/StaticFileHandler.class' />
+			<manifest>
+				<attribute name='Main-Class' value='paymentgateway.server.AppApi2' />
+				<attribute name='Class-Path' value='lib/webbit-full.jar lib/guice.jar lib/aopalliance.jar lib/guava.jar lib/javax.inject.jar' />
+			</manifest>
+		</jar>
+		<antcall target='package-deploy' />
+	</target>
+	
+	<target name='package3' depends='compile'>
+		<mkdir dir='${deploy}' />
+		<jar destfile='${deploy}/paymentgateway-ui.jar'>
+			<fileset dir='${bin}/deploy' includes='paymentgateway/server/*.class,paymentgateway/logic/InjectorConfiguration*.class' excludes='paymentgateway/server/AppAllInOne.class,paymentgateway/server/AppApi2.class,paymentgateway/server/AppApi.class,paymentgateway/server/AppOther.class,paymentgateway/server/ApiServer.class,paymentgateway/server/ProcessPaymentHandler.class' />
+			<manifest>
+				<attribute name='Main-Class' value='paymentgateway.server.AppUi' />
+				<attribute name='Class-Path' value='lib/webbit-full.jar lib/guice.jar lib/aopalliance.jar lib/guava.jar lib/javax.inject.jar' />
+			</manifest>
+		</jar>
+		<jar destfile='${deploy}/paymentgateway-api.jar'>
+			<fileset dir='${bin}/deploy' includes='paymentgateway/**/*.class' excludes='paymentgateway/server/AppAllInOne.class,paymentgateway/server/AppUi.class,paymentgateway/server/AppApi2.class,paymentgateway/server/AppOther.class,paymentgateway/server/UiServer.class,paymentgateway/server/FileHandlerBase.class,paymentgateway/server/FileNotFoundHandler.class,paymentgateway/server/ConfigHandler.class,paymentgateway/server/StaticFileHandler.class' />
+			<manifest>
+				<attribute name='Main-Class' value='paymentgateway.server.AppApi' />
+				<attribute name='Class-Path' value='lib/webbit-full.jar lib/guice.jar lib/aopalliance.jar lib/guava.jar lib/javax.inject.jar' />
+			</manifest>
+		</jar>
+		<jar destfile='${deploy}/paymentgateway-other.jar'>
+			<fileset dir='${bin}/deploy' includes='paymentgateway/**/*.class' excludes='paymentgateway/server/AppAllInOne.class,paymentgateway/server/AppUi.class,paymentgateway/server/AppApi2.class,paymentgateway/server/AppApi.class,paymentgateway/server/UiServer.class,paymentgateway/server/FileHandlerBase.class,paymentgateway/server/FileNotFoundHandler.class,paymentgateway/server/ConfigHandler.class,paymentgateway/server/StaticFileHandler.class' />
+			<manifest>
+				<attribute name='Main-Class' value='paymentgateway.server.AppOther' />
+				<attribute name='Class-Path' value='lib/webbit-full.jar lib/guice.jar lib/aopalliance.jar lib/guava.jar lib/javax.inject.jar' />
+			</manifest>
+		</jar>
+		<antcall target='package-deploy' />
+	</target>
+	
+	<target name='build' depends='compile,package,package-tests' description='Builds all-in-one deployment and tests'>
+	</target>
+	
+	<target name='build2' depends='compile,package2,package-tests' description='Builds ui and api2 deployment and tests'>
+	</target>
+	
+	<target name='build3' depends='compile,package3,package-tests' description='Builds ui, api, and other deployment and tests'>
+	</target>
+	
+	<target name='style' description='CheckStyle tests'>
+		<mkdir dir='${results}' />
+		<taskdef resource='com/puppycrawl/tools/checkstyle/ant/checkstyle-ant-task.properties'
+			 classpath='${lib}/test/checkstyle-all.jar' />
+		<checkstyle config='${src}/test/checkstyle/checkstyle.xml' failOnViolation='false'>
+			<fileset dir='${src}'>
+				<include name='main/java/**' />
+				<include name='test/java/**' />
+			</fileset>
+			<classpath location='${lib}/test/checkstyle-all.jar' />
+			<formatter type='xml' toFile='${results}/STATIC-CheckStyle.xml' />
+		</checkstyle>
+		<!-- TODO Failure here should end the build -->
+	</target>
+	
+	<target name='unit' description='JUnit tests'>
+		<mkdir dir='${results}/unit' />
+		<jacoco:coverage destfile='${results}/jacoco-unit.exec'>
+			<junit haltonfailure='false' failureproperty='unit.failed' printsummary='on' fork='true' forkmode='once'>
+				<classpath refid='test.standard' />
+				<batchtest todir='${results}/unit'>
+					<fileset dir='${bin}/test'>
+						<include name='unit/**/*Test.class' />
+					</fileset>
+					<formatter type='xml' />
+				</batchtest>
+			</junit>
+		</jacoco:coverage>
+		<fail if='unit.failed'>
+			One or more unit tests failed - check the output.
+		</fail>
+		<jacoco:report>
+			<executiondata>
+				<file file='${results}/jacoco-unit.exec' />
+			</executiondata>
+			<structure name='Payment Gateway'>
+				<classfiles>
+					<fileset dir='${bin}/deploy' />
+				</classfiles>
+				<sourcefiles encoding='utf-8'>
+					<fileset dir='${src}/main/java' />
+				</sourcefiles>
+			</structure>
+			<check>
+				<!-- element=BUNDLE PACKAGE CLASS SOURCEFILE METHOD -->
+				<rule element='BUNDLE'>
+					<!-- counter=INSTRUCTION LINE BRANCH COMPLEXITY METHOD CLASS -->
+					<!-- value=TOTALCOUNT MISSEDCOUNT COVEREDCOUNT MISSEDRATIO COVEREDRATIO -->
+					<limit counter='INSTRUCTION' value='COVEREDRATIO' minimum='20%' />
+				</rule>
+			</check>
+		</jacoco:report>
+	</target>
+	
+	<target name='acceptance' description='Cucumber acceptance tests'>
+		<mkdir dir='${results}/other' />
+		<mkdir dir='${report}/cucumber' />
+		<junit haltonfailure='false' failureproperty='acceptance.failed' printsummary='on'>
+			<classpath refid='test.standard' />
+			<test name='acceptance.CucumberAcceptanceTest' />
+		</junit>
+		<fail if='acceptance.failed'>
+			One or more acceptance tests failed - check the output.
+		</fail>
+	</target>
+	
+	<target name='ui' description='Cucumber UI tests'>
+		<mkdir dir='${results}/other' />
+		<mkdir dir='${report}/cucumberui' />
+		<junit haltonfailure='false' failureproperty='ui.failed' printsummary='on'>
+			<classpath refid='test.standard' />
+			<test name='ui.CucumberUiTest' />
+		</junit>
+		<fail if='ui.failed'>
+			One or more UI tests failed - check the output.
+		</fail>
+	</target>
+	
+	<!-- TODO @@@ Add in Cucumber UI tests for everything -->
+	
+	<target name='api' description='SoapUI tests of the API'>
+		<antcall target='stop-server' />
+		<mkdir dir='${results}/other' />
+		<mkdir dir='${results}/soapui' />
+		<junit haltonfailure='false' failureproperty='api.failed' printsummary='on'>
+			<classpath refid='test.soapui' />
+			<test name='api.SoapUiApiTest' todir='${results}/other' />
+			<formatter type='xml' />
+		</junit>
+		<fail if='api.failed'>
+			One or more api tests failed - check the output.
+		</fail>
+	</target>
+	
+	<target name='api-docker' description='SoapUI tests of the API running in Docker'>
+		<exec executable='docker'>
+			<arg line='run --rm -d -p 5651:5551 -p 5652:5552 -e PG_PORT_UI=5652 --name pg pg' />
+		</exec>
+		<mkdir dir='${results}/other' />
+		<mkdir dir='${results}/soapui' />
+		<junit haltonfailure='false' failureproperty='api.failed' printsummary='on'>
+			<classpath refid='test.soapui' />
+			<test name='api.SoapUiApiDockerTest' todir='${results}/other' />
+			<formatter type='xml' />
+		</junit>
+		<exec executable='docker'>
+			<arg line='stop pg' />
+		</exec>
+		<fail if='api.failed'>
+			One or more api tests failed - check the output.
+		</fail>
+	</target>
+	
+	<target name='soapui' description='All SoapUI tests (non-standard)'>
+		<antcall target='stop-server' />
+		<mkdir dir='${results}/other' />
+		<mkdir dir='${results}/soapui' />
+		<junit haltonfailure='false' failureproperty='soapui.failed' printsummary='on'>
+			<classpath refid='test.soapui' />
+			<test name='api.SoapUiFullApiTest' todir='${results}/other' />
+			<formatter type='xml' />
+		</junit>
+		<fail if='soapui.failed'>
+			One or more SoapUI tests failed - check the output.
+		</fail>
+	</target>
+	
+	<target name='selenium' description='Selenium UI tests (non-standard)'>
+		<antcall target='stop-server' />
+		<mkdir dir='${results}/other' />
+		<mkdir dir='${results}/selenium' />
+		<mkdir dir='${report}/selenium' />
+		<junit haltonfailure='false' failureproperty='selenium.failed' printsummary='on'>
+			<classpath refid='test.standard' />
+			<test name='ui.SeleniumFullTest' todir='${results}/other' />
+			<formatter type='xml' />
+		</junit>
+		<fail if='selenium.failed'>
+			One or more Selenium tests failed - check the output.
+		</fail>
+	</target>
+	
+	<target name='load' description='SoapUI load tests of the API'>
+		<antcall target='stop-server' />
+		<exec executable='sh/runnow.cmd' />
+		<mkdir dir='${results}/other' />
+		<mkdir dir='${results}/load' />
+		<junit haltonfailure='false' failureproperty='load.failed' printsummary='on'>
+			<classpath refid='test.soapui' />
+			<test name='load.SoapUiLoadTest' todir='${results}/other' />
+			<formatter type='xml' />
+		</junit>
+		<antcall target='stop-server' />
+		<fail if='load.failed'>
+			One or more load tests failed - check the output.
+		</fail>
+	</target>
+	
+	<target name='security' description='SoapUI security tests of the API'>
+		<antcall target='stop-server' />
+		<mkdir dir='${results}/other' />
+		<mkdir dir='${results}/security' />
+		<junit haltonfailure='false' failureproperty='security.failed' printsummary='on'>
+			<classpath refid='test.soapui' />
+			<test name='security.SoapUiSecurityTest' todir='${results}/other' />
+			<formatter type='xml' />
+		</junit>
+		<fail if='security.failed'>
+			One or more security tests failed - check the output.
+		</fail>
+	</target>
+	
+	<target name='test' depends='build,style,unit,acceptance,ui,api' description='Standard tests - style, unit, acceptance, api, ui'>
+	</target>
+	
+	<target name='test-all' depends='build,style,unit,acceptance,ui,soapui,selenium' description='All tests - style, unit, acceptance, soapui, ui, selenium'>
+	</target>
+	
+	<target name='docker' depends='package' description='Creates Docker image: pg'>
+		<exec executable='docker'>
+			<arg line='build -f docker/DockerFile -t pg deploy' />
+		</exec>
+	</target>
+	
+	<target name='docker2' depends='package2' description='Creates Docker images: pg-ui, pg-api2'>
+		<exec executable='docker'>
+			<arg line='build -f docker/DockerFile-ui -t pg-ui deploy' />
+		</exec>
+		<exec executable='docker'>
+			<arg line='build -f docker/DockerFile-api2 -t pg-api2 deploy' />
+		</exec>
+	</target>
+	
+	<target name='docker3' depends='package3' description='Creates Docker images: pg-ui, pg-api, pg-other'>
+		<exec executable='docker'>
+			<arg line='build -f docker/DockerFile-ui -t pg-ui deploy' />
+		</exec>
+		<exec executable='docker'>
+			<arg line='build -f docker/DockerFile-api -t pg-api deploy' />
+		</exec>
+		<exec executable='docker'>
+			<arg line='build -f docker/DockerFile-other -t pg-other deploy' />
+		</exec>
+	</target>
+	
+	<target name='report-style-file-check'>
+		<available file='${results}/STATIC-CheckStyle.xml' property='checkstyle.found' />
+	</target>
+	
+	<target name='report-style' depends='report-style-file-check' if='checkstyle.found'>
+		<mkdir dir='${report}/checkstyle' />
+		<xslt in='${results}/STATIC-CheckStyle.xml' 
+			out='nul' 
+			style='${src}/test/checkstyle/checkstyle-frames.xsl'
+			failOnError='false'>
+			<param name='output.dir' expression='${report}/checkstyle' />
+		</xslt>
+		<copy file='${src}/test/report/index.html' todir='${report}' failonerror='false' />
+	</target>
+	
+	<target name='report-unit'>
+		<mkdir dir='${report}/unit' />
+		<junitreport todir='${report}/unit'>
+			<fileset dir='${results}' includes='unit/**/*.xml' />
+			<report format='frames' todir='${report}/unit'>
+				<param name='TITLE' expression='Unit Test Results' />
+			</report>
+		</junitreport>
+		<copy file='${src}/test/report/index.html' todir='${report}' failonerror='false' />
+	</target>
+	
+	<target name='report-coverage-file-check'>
+		<available file='${results}/jacoco-unit.exec' property='jacoco-unit.found' />
+	</target>
+	
+	<target name='report-coverage' depends='report-coverage-file-check' if='jacoco-unit.found'>
+		<mkdir dir='${report}/jacoco' />
+		<jacoco:report>
+			<executiondata>
+				<file file='${results}/jacoco-unit.exec' />
+			</executiondata>
+			<structure name='Payment Gateway'>
+				<classfiles>
+					<fileset dir='${bin}/deploy' />
+				</classfiles>
+				<sourcefiles encoding='utf-8'>
+					<fileset dir='${src}/main/java' />
+				</sourcefiles>
+			</structure>
+			<html destdir='${report}/coverage' />
+		</jacoco:report>
+	</target>
+	
+	<target name='report-other'>
+		<mkdir dir='${report}/other' />
+		<junitreport todir='${report}/other'>
+			<fileset dir='${results}' includes='other/**/*.xml' />
+			<report format='frames' todir='${report}/other'>
+				<param name='TITLE' expression='Miscellaneous Test Results' />
+			</report>
+		</junitreport>
+		<copy file='${src}/test/report/index.html' todir='${report}' failonerror='false' />
+	</target>
+	
+	<target name='report-acceptance'>
+		<mkdir dir='${report}' />
+		<copy file='${src}/test/report/index.html' todir='${report}' failonerror='false' />
+	</target>
+	
+	<target name='report-api'>
+		<mkdir dir='${report}/soapui' />
+		<junitreport todir='${report}/soapui'>
+			<fileset dir='${results}' includes='soapui/**/*.xml' />
+			<report format='frames' todir='${report}/soapui'>
+				<param name='TITLE' expression='API Test Results' />
+			</report>
+		</junitreport>
+		<copy file='${src}/test/report/index.html' todir='${report}' failonerror='false' />
+	</target>
+	
+	<target name='report-ui'>
+		<mkdir dir='${report}' />
+		<!-- TODO @@@ What is this? -->
+		<copy file='${src}/test/report/index.html' todir='${report}' failonerror='false' />
+	</target>
+	
+	<target name='report-selenium'>
+		<mkdir dir='${report}/selenium2' />
+		<junitreport todir='${report}/selenium2'>
+			<fileset dir='${results}' includes='selenium/**/*.xml' />
+			<report format='frames' todir='${report}/selenium2'>
+				<param name='TITLE' expression='Selenium UI Test Results' />
+			</report>
+		</junitreport>
+		<copy file='${src}/test/report/index.html' todir='${report}' failonerror='false' />
+	</target>
+	
+	<target name='report-load'>
+		<mkdir dir='${report}/load' />
+		<junitreport todir='${report}/load'>
+			<fileset dir='${results}' includes='load/**/*.xml' />
+			<report format='frames' todir='${report}/load'>
+				<param name='TITLE' expression='Load Test Results' />
+			</report>
+		</junitreport>
+		<copy file='${src}/test/report/index.html' todir='${report}' failonerror='false' />
+	</target>
+	
+	<target name='report-security'>
+		<mkdir dir='${report}/security' />
+		<junitreport todir='${report}/security'>
+			<fileset dir='${results}' includes='security/**/*.xml' />
+			<report format='frames' todir='${report}/security'>
+				<param name='TITLE' expression='Security Test Results' />
+			</report>
+		</junitreport>
+		<copy file='${src}/test/report/index.html' todir='${report}' failonerror='false' />
+	</target>
+	
+	<target name='report' depends='report-style,report-unit,report-coverage,report-other,report-acceptance,report-api,report-ui,report-selenium,report-load,report-security' description='Generate reports'>
+	</target>
+	
+	<target name='stop-server'>
+		<exec executable='taskkill'>
+			<arg line='/f /im java.exe /fi "WINDOWTITLE eq PaymentGateway"' />
+		</exec>
+	</target>
+	
+	<!-- deploy libraries -->
+	<property name='webbit.repo' value='http://repo2.maven.org/maven2/org/webbitserver/webbit' />
+	<property name='webbit.version' value='0.4.9' />
+
+	<property name='guice.repo' value='http://search.maven.org/remotecontent?filepath=com/google/inject/guice' />
+	<property name='guice.version' value='4.2.0' />
+	<property name='guice.lib.repo' value='https://github.com/google/guice/raw/master/lib' />
+	<property name='guava.repo' value='http://search.maven.org/remotecontent?filepath=com/google/guava/guava' />
+	<property name='guava.version' value='25.1-jre' />
+	
+	<!-- test libraries -->
+	<property name='checkstyle.repo' value='https://github.com/checkstyle/checkstyle/releases/download/' />
+	<property name='checkstyle.version' value='8.11' />
+	<property name='mockito.repo' value='http://repo2.maven.org/maven2/org/mockito/mockito-all' />
+	<property name='mockito.version' value='1.9.5' />
+	<property name='selenese.repo' value='https://github.com/vmi/selenese-runner-java/releases/download' />
+	<property name='selenese.version' value='3.19.0' />
+	<property name='junit.repo' value='https://oss.sonatype.org/content/repositories/releases/junit/junit' />
+	<property name='junit.version' value='4.12' />
+	<property name='jacoco.repo' value='http://search.maven.org/remotecontent?filepath=org/jacoco/jacoco' />
+	<property name='jacoco.version' value='0.8.1' />
+	
+	<property name='cucumber-jvm.repo' value='https://oss.sonatype.org/content/repositories/releases/info/cukes' />
+	<property name='cucumber-jvm.version' value='1.2.4' />
+	<property name='cucumber-html.version' value='0.2.3' />
+	<property name='cucumber-jvm-deps.version' value='1.0.5' />
+	<property name='gherkin.version' value='2.12.2' />
+
+	<!-- drivers -->
+	<property name='gecko.repo' value='https://github.com/mozilla/geckodriver/releases/download' />
+	<property name='gecko.version' value='0.23.0' />
+
+	<target name='download' description='Downloads third-party libraries'>
+		<!-- deploy libraries -->
+		<mkdir dir='${lib}/deploy' />
+		<get src='${webbit.repo}/${webbit.version}/webbit-${webbit.version}-full.jar'
+			dest='${lib}/deploy/webbit-full.jar' />
+		
+		<get src='${guice.repo}/${guice.version}/guice-${guice.version}.jar'
+			dest='${lib}/deploy/guice.jar' />
+		<get src='${guice.lib.repo}/aopalliance.jar'
+			dest='${lib}/deploy/aopalliance.jar' />
+		<get src='${guice.lib.repo}/javax.inject.jar'
+			dest='${lib}/deploy/javax.inject.jar' />
+		<get src='${guava.repo}/${guava.version}/guava-${guava.version}.jar'
+			dest='${lib}/deploy/guava.jar' />
+
+		<!-- test libraries -->
+		<mkdir dir='${lib}/test' />
+		<get src='${checkstyle.repo}/checkstyle-${checkstyle.version}/checkstyle-${checkstyle.version}-all.jar'
+			dest='${lib}/test/checkstyle-all.jar' />
+		<get src='${mockito.repo}/${mockito.version}/mockito-all-${mockito.version}.jar'
+			dest='${lib}/test/mockito-all.jar' />
+		<get src='${selenese.repo}/selenese-runner-java-${selenese.version}/selenese-runner.jar'
+			dest='${lib}/test/selenese-runner.jar' />
+		<get src='${junit.repo}/${junit.version}/junit-${junit.version}.jar'
+			dest='${lib}/test/junit.jar' />
+			
+		<mkdir dir='${lib}/test/jacoco' />
+		<get src='${jacoco.repo}/${jacoco.version}/jacoco-${jacoco.version}.zip'
+			dest='${lib}/test/jacoco/jacoco.zip' />
+		<unzip src='${lib}/test/jacoco/jacoco.zip' dest='${lib}/test/jacoco' />
+		<copy file='${lib}/test/jacoco/lib/jacocoant.jar' todir='${lib}/test' />
+		<delete dir='${lib}/test/jacoco' />
+		
+		<get src='${cucumber-jvm.repo}/cucumber-core/${cucumber-jvm.version}/cucumber-core-${cucumber-jvm.version}.jar'
+			dest='${lib}/test/cucumber-core.jar' />
+		<get src='${cucumber-jvm.repo}/cucumber-java/${cucumber-jvm.version}/cucumber-java-${cucumber-jvm.version}.jar'
+			dest='${lib}/test/cucumber-java.jar' />
+		<get src='${cucumber-jvm.repo}/cucumber-junit/${cucumber-jvm.version}/cucumber-junit-${cucumber-jvm.version}.jar'
+			dest='${lib}/test/cucumber-junit.jar' />
+		<get src='${cucumber-jvm.repo}/cucumber-html/${cucumber-html.version}/cucumber-html-${cucumber-html.version}.jar'
+			dest='${lib}/test/cucumber-html.jar' />
+		<get src='${cucumber-jvm.repo}/cucumber-jvm-deps/${cucumber-jvm-deps.version}/cucumber-jvm-deps-${cucumber-jvm-deps.version}.jar'
+			dest='${lib}/test/cucumber-jvm-deps.jar' />
+		<get src='${cucumber-jvm.repo}/gherkin/${gherkin.version}/gherkin-${gherkin.version}.jar'
+			dest='${lib}/test/gherkin.jar' />
+
+		<!-- drivers -->
+		<mkdir dir='${lib}/drivers' />
+		<get src='${gecko.repo}/v${gecko.version}/geckodriver-v${gecko.version}-win64.zip'
+			dest='${lib}/drivers/geckodriver.zip' />
+		<unzip src='${lib}/drivers/geckodriver.zip' dest='${lib}/drivers' />
+		<delete file='${lib}/drivers/geckodriver.zip' />
+	</target>
+</project>

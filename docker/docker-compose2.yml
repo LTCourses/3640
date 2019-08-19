@@ -1,0 +1,11 @@
+pg-ui:
+  image: pg-ui
+  ports:
+  - "5651:5551"
+  environment:
+  - PG_PORT_UI_API=5652
+
+pg-api2:
+  image: pg-api2
+  ports:
+  - "5652:5552"

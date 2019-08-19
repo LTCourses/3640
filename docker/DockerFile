@@ -1,0 +1,7 @@
+FROM fiadliel/java8-jre
+COPY paymentgateway-all.jar /paymentgateway/
+COPY lib /paymentgateway/lib/
+COPY webapp /paymentgateway/webapp/
+COPY db /paymentgateway/db/
+CMD [ "java", "-jar", "/paymentgateway/paymentgateway-all.jar" ]
+EXPOSE 5551 5552

@@ -1,0 +1,27 @@
+pg-ui:
+  image: pg-ui
+  ports:
+  - "5651:5551"
+  environment:
+    - PG_PORT_UI_API=5652
+
+pg-visa:
+  image: pg-api
+  ports:
+  - "5652:5552"
+  environment:
+    - PG_PORT_API_OTHER=5654
+    - PG_HOSTNAME_OTHER=${COMPUTERNAME}
+
+pg-mastercard:
+  image: pg-api
+  ports:
+  - "5654:5552"
+  environment:
+    - PG_PORT_API_OTHER=5653
+    - PG_HOSTNAME_OTHER=${COMPUTERNAME}
+
+pg-other:
+  image: pg-other
+  ports:
+  - "5653:5553"
