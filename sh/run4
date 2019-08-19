@@ -1,0 +1,14 @@
+#!/bin/bash
+pkill -f 'deploy/paymentgateway'
+if [ -e ./build.xml ]; then
+	if [ -e ../build.xml ]; then
+		cd ..
+	fi
+fi
+ant build3
+if [ $? = 0 ]; then
+	java -jar deploy/paymentgateway-ui.jar &
+	java -DPG_PORT_API_OTHER=5554 -jar deploy/paymentgateway-api.jar &
+	java -DPG_ISSUER=MASTERCARD -DPG_PORT_API=5554 -jar deploy/paymentgateway-api.jar &
+	java -jar deploy/paymentgateway-other.jar &
+fi

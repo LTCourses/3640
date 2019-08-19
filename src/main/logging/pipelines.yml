@@ -1,0 +1,6 @@
+# List of pipelines to be loaded by Logstash
+#
+- pipeline.id: test
+  pipeline.workers: 1
+  pipeline.batch.size: 1
+  path.config: "./config/paymentgateway.config"

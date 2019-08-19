@@ -1,0 +1,24 @@
+#!/bin/bash
+pkill -f 'deploy/paymentgateway'
+if [ -e ./build.xml ]; then
+	if [ -e ../build.xml ]; then
+		cd ..
+	fi
+fi
+ant build
+if [ $? = 0 ]; then
+	PG_EXPIRY=fix java -jar deploy/paymentgateway-all.jar &
+	if [ $# = 0 ]; then
+		TestFile="*.side"
+	elif [ -e $1 ]; then
+		TestFile=`basename $1`
+	elif [ -e src/test/selenium/$1 ]; then
+		TestFile="$1"
+	elif [ -e src/test/selenium/$1.feature ]; then
+		TestFile="$1.feature"
+	else
+		TestFile="*.side"
+	fi
+	java -jar tests/lib/selenese-runner.jar --geckodriver tests/drivers/geckodriver.exe --xml-result results/selenium --html-result report/selenium --screenshot-on-fail results/selenium tests/selenium/$TestFile
+	pkill -f 'deploy/paymentgateway'
+fi

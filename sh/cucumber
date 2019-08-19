@@ -1,0 +1,20 @@
+#!/bin/bash
+pkill -f 'deploy/paymentgateway'
+if [ -e ./build.xml ]; then
+	if [ -e ../build.xml ]; then
+		cd ..
+	fi
+fi
+ant build
+if [ $? = 0 ]; then
+	if [ $# = 0 ]; then
+		TestFile=""
+	elif [ -e $1 ]; then
+		TestFile=`basename $1`
+	elif [ -e src/test/cucumber/$1 ]; then
+		TestFile="$1"
+	elif [ -e src/test/cucumber/$1.feature ]; then
+		TestFile="$1.feature"
+	fi
+	CLASSPATH=tests/lib/*:deploy/paymentgateway-all.jar java cucumber.api.cli.Main --glue acceptance.stepdefs tests/cucumber/$TestFile --plugin pretty --tags ~@UI --tags ~@API --snippets camelcase
+fi

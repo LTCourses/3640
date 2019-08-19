@@ -1,0 +1,12 @@
+#!/bin/bash
+pkill -f 'deploy/paymentgateway'
+if [ -e ./build.xml ]; then
+	if [ -e ../build.xml ]; then
+		cd ..
+	fi
+fi
+ant build2
+if [ $? = 0 ]; then
+	java -jar deploy/paymentgateway-ui.jar &
+	java -jar deploy/paymentgateway-api2.jar &
+fi

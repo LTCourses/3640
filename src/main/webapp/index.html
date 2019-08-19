@@ -1,0 +1,94 @@
+<html>
+<head>
+	<title>Process Payment</title>
+	<meta charset='utf-8'>
+	<meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'>
+	<style type='text/css'>
+		.help {
+			font-style: italic;
+		}
+	</style>
+	<script src='config.js'></script>
+	<script type='text/javascript'>
+	function getXmlText(xhr, name) {
+		var element = xhr.responseXML.getElementsByTagName(name);
+		if (element.length === 0) return '';
+		else return element[0].textContent;
+	}
+	function getTwoDigits(number) {
+		var reply = '' + number;
+		if (reply.length === 1) reply = '0' + number;
+		return reply;
+	}
+	function pay(isValidateOnly) {
+		var accountKey = document.getElementsByName('AccountKey')[0].value;
+		var number = document.getElementsByName('Number')[0].value;
+		var expiry = document.getElementsByName('Expiry')[0].value;
+		var amount = document.getElementsByName('Amount')[0].value;
+		var table = document.getElementById('Results');
+		var index = table.rows.length;
+		var row = table.insertRow(1);
+		var now = new Date();
+		row.insertCell(0).innerHTML = getTwoDigits(now.getDate()) + '/' + getTwoDigits(now.getMonth() + 1) + '/' + now.getFullYear();
+		row.insertCell(1).innerHTML = getTwoDigits(now.getHours()) + ':' + getTwoDigits(now.getMinutes()) + ':' + getTwoDigits(now.getSeconds());
+		row.insertCell(2).innerHTML = number;
+		row.insertCell(3).innerHTML = expiry;
+		row.insertCell(4).innerHTML = amount;
+		row.insertCell(5);
+		row.insertCell(6).id = 'Status' + index;
+		row.insertCell(7).id = 'Message' + index;
+		row.insertCell(8).id = 'Type' + index;
+		row.insertCell(9).id = 'Funds' + index;
+		row.insertCell(10).id = 'Test' + index;
+		var url = apiHost + '/api/pay?Number=' + number + '&Expiry=' + expiry + '&Amount=' + amount;
+		var xhr = new XMLHttpRequest();
+		xhr.open(isValidateOnly ? 'GET' : 'POST', url);
+		xhr.setRequestHeader('Account-Key', accountKey);
+		xhr.addEventListener('load', function(e) {
+			now = new Date();
+			row.cells[5].innerHTML = getTwoDigits(now.getHours()) + ':' + getTwoDigits(now.getMinutes()) + ':' + getTwoDigits(now.getSeconds());
+			row.cells[6].innerHTML = getXmlText(xhr, 'status');
+			row.cells[7].innerHTML = getXmlText(xhr, 'message');
+			row.cells[8].innerHTML = getXmlText(xhr, 'type');
+			row.cells[9].innerHTML = getXmlText(xhr, 'funds');
+			row.cells[10].innerHTML = getXmlText(xhr, 'testmode');
+		});
+		xhr.addEventListener('error', function(e) {
+			now = new Date();
+			row.cells[5].innerHTML = getTwoDigits(now.getHours()) + ':' + getTwoDigits(now.getMinutes()) + ':' + getTwoDigits(now.getSeconds());
+			row.cells[6].innerHTML = 'ERROR';
+			row.cells[7].innerHTML = 'No response was received';
+		});
+		xhr.send(null);
+	}
+	</script>
+</head>
+<body>
+	<h1>Process Payment</h1>
+	<p class='help'>A list of valid credit card numbers is available <a href='cards.html' target='cards'>here</a></p>
+	<p>Account key:<br /><input type='text' name='AccountKey' id='AccountKey' /></p>
+	<p>Number:<br /><input type='text' name='Number' id='Number' /></p>
+	<p>Expiry:<br /><input type='text' name='Expiry' id='Expiry' /></p>
+	<p>Amount:<br /><input type='text' name='Amount' id='Amount' /></p>
+	<p>
+		<input type='button' name='Pay' id='Pay' value='Pay' onClick='pay(false)' />
+		<input type='button' name='Validate' id='Validate' value='Validate' onClick='pay(true)' />
+	</p>
+	<h2>Results</h2>
+	<table id='Results'>
+		<tbody>
+			<tr>
+				<th>Date</th>
+				<th>Request</th>
+				<th>Number</th>
+				<th>Expiry</th>
+				<th>Amount</th>
+				<th>Response</th>
+				<th>Status</th>
+				<th>Message</th>
+				<th>Card Type</th>
+				<th>Funds</th>
+			</tr>
+		</tbody>
+	</table>
+</body>

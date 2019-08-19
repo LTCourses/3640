@@ -1,0 +1,7 @@
+#!/bin/bash
+if [ -e ./build.xml ]; then
+	if [ -e ../build.xml ]; then
+		cd ..
+	fi
+fi
+java -jar lib/test/checkstyle-all.jar -c src/test/checkstyle/checkstyle.xml src/main/java/ src/test/java/
