@@ -5,7 +5,7 @@ pipelines:
     label_template: "${COUNT}"
     materials:
       mygit:
-        git: http://lab4:8885/PaymentGateway.git
+        git: https://github.com/LTCourses/3640
         branch: master
     stages:
     - Commit:
